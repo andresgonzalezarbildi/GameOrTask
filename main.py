@@ -4,7 +4,13 @@ import tkinter as tk
 from tkinter import messagebox
 import psutil
 import json
+import time
+import os
 
+# Ruta para el archivo que guarda el resultado temporalmente
+RESULT_FILE = 'result_cache.json'
+
+# Función para abrir el juego
 def open_game():
     game_path = r"C:\Riot Games\Riot Client\RiotClientServices.exe"
     args = ["--launch-product=league_of_legends", "--launch-patchline=live"]
@@ -16,20 +22,20 @@ def open_game():
     # Abre el juego con los argumentos
     subprocess.Popen([game_path] + args)
 
+# Verifica si un programa está en ejecución
 def isProgramRunning(program_name):
-    """Verifica si un programa está en ejecución."""
     for process in psutil.process_iter(['name']):
         if process.info['name'] == program_name:
             return True
     return False
 
+# Carga la configuración de un archivo JSON
 def load_config():
-    """Carga la configuración de un archivo JSON."""
     with open('config.json', 'r') as f:
         return json.load(f)
 
+# Selecciona una opción según las probabilidades definidas
 def choose_option(options):
-    """Selecciona una opción según las probabilidades definidas."""
     total = sum(options.values())
     random_number = random.randint(1, total)
 
@@ -39,8 +45,8 @@ def choose_option(options):
         if random_number <= cumulative:
             return option
 
+# Muestra un mensaje personalizado en una ventana de tkinter
 def show_custom_message(message):
-    """Muestra un mensaje personalizado en una ventana de tkinter."""
     root = tk.Tk()
     root.title("Opción Seleccionada")
     root.geometry("300x150")  # Tamaño de la ventana
@@ -60,14 +66,39 @@ def show_custom_message(message):
 
     root.mainloop()
 
-def main():
-    options = load_config()
-    selected_option = choose_option(options)
+# Guarda el resultado temporalmente en un archivo JSON
+def save_result(result):
+    with open(RESULT_FILE, 'w') as f:
+        json.dump({"result": result, "timestamp": time.time()}, f)
 
-    if selected_option == "Abrir Lolcito":
-        open_game()
+# Carga el resultado del archivo si no ha expirado
+def load_cached_result():
+    if os.path.exists(RESULT_FILE):
+        with open(RESULT_FILE, 'r') as f:
+            data = json.load(f)
+            if time.time() - data['timestamp'] < 300:  # 5 minutos = 300 segundos
+                return data['result']
+    return None
+
+def main():
+    # Intenta cargar el resultado guardado
+    cached_result = load_cached_result()
+
+    if cached_result:
+        # Si hay un resultado guardado válido, lo muestra
+        show_custom_message(f"Ya te dije, {cached_result}")
     else:
+        # Cargar las opciones del archivo JSON
+        options = load_config()
+        selected_option = choose_option(options)
+
+        if selected_option == "Abrir Lolcito":
+            selected_option = "Salió esa grieta"
+            open_game()
+
+        # Muestra el resultado y lo guarda por 5 minutos
         show_custom_message(f"{selected_option}")
+        save_result(selected_option)
 
 if __name__ == "__main__":
     main()
